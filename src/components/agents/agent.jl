@@ -1,5 +1,7 @@
 export Agent
 
+using Flux
+
 """
     Agent(;kwargs...)
 
@@ -17,15 +19,27 @@ Base.@kwdef mutable struct Agent{P<:AbstractPolicy,T<:AbstractTrajectory,R} <: A
     policy::P
     trajectory::T
     role::R = :DEFAULT_PLAYER
+    is_training::Bool = true
 end
 
 get_role(agent::Agent) = agent.role
+
+function Flux.testmode!(agent::Agent, mode = true)
+    agent.is_training = !mode
+    testmode!(agent.policy, mode)
+end
+
+(agent::Agent)(stage::AbstractStage, obs) =
+    agent.is_training ? agent(Training(stage), obs) : agent(Testing(stage), obs)
+
+(agent::Agent)(::Testing, obs) = nothing
+(agent::Agent)(::Testing{PreActStage}, obs) = agent.policy(obs)
 
 #####
 # EpisodicCompactSARTSATrajectory
 #####
 function (agent::Agent{<:AbstractPolicy,<:EpisodicCompactSARTSATrajectory})(
-    ::PreEpisodeStage,
+    ::Training{PreEpisodeStage},
     obs,
 )
     empty!(agent.trajectory)
@@ -33,7 +47,7 @@ function (agent::Agent{<:AbstractPolicy,<:EpisodicCompactSARTSATrajectory})(
 end
 
 function (agent::Agent{<:AbstractPolicy,<:EpisodicCompactSARTSATrajectory})(
-    ::PreActStage,
+    ::Training{PreActStage},
     obs,
 )
     action = agent.policy(obs)
@@ -43,7 +57,7 @@ function (agent::Agent{<:AbstractPolicy,<:EpisodicCompactSARTSATrajectory})(
 end
 
 function (agent::Agent{<:AbstractPolicy,<:EpisodicCompactSARTSATrajectory})(
-    ::PostActStage,
+    ::Training{PostActStage},
     obs,
 )
     push!(agent.trajectory; reward = get_reward(obs), terminal = get_terminal(obs))
@@ -51,7 +65,7 @@ function (agent::Agent{<:AbstractPolicy,<:EpisodicCompactSARTSATrajectory})(
 end
 
 function (agent::Agent{<:AbstractPolicy,<:EpisodicCompactSARTSATrajectory})(
-    ::PostEpisodeStage,
+    ::Training{PostEpisodeStage},
     obs,
 )
     action = agent.policy(obs)
@@ -70,7 +84,7 @@ function (
         <:Union{CircularCompactSARTSATrajectory,CircularCompactPSARTSATrajectory},
     }
 )(
-    ::PreEpisodeStage,
+    ::Training{PreEpisodeStage},
     obs,
 )
     if length(agent.trajectory) > 0
@@ -85,7 +99,7 @@ function (
         <:Union{CircularCompactSARTSATrajectory,CircularCompactPSARTSATrajectory},
     }
 )(
-    ::PreActStage,
+    ::Training{PreActStage},
     obs,
 )
     action = agent.policy(obs)
@@ -100,7 +114,7 @@ function (
         <:Union{CircularCompactSARTSATrajectory,CircularCompactPSARTSATrajectory},
     }
 )(
-    ::PostActStage,
+    ::Training{PostActStage},
     obs,
 )
     push!(agent.trajectory; reward = get_reward(obs), terminal = get_terminal(obs))
@@ -113,7 +127,7 @@ function (
         <:Union{CircularCompactSARTSATrajectory,CircularCompactPSARTSATrajectory},
     }
 )(
-    ::PostEpisodeStage,
+    ::Training{PostEpisodeStage},
     obs,
 )
     action = agent.policy(obs)
@@ -127,7 +141,7 @@ end
 #####
 
 function (agent::Agent{<:AbstractPolicy,<:VectorialCompactSARTSATrajectory})(
-    ::PreEpisodeStage,
+    ::Training{PreEpisodeStage},
     obs,
 )
     if length(agent.trajectory) > 0
@@ -137,7 +151,7 @@ function (agent::Agent{<:AbstractPolicy,<:VectorialCompactSARTSATrajectory})(
 end
 
 function (agent::Agent{<:AbstractPolicy,<:VectorialCompactSARTSATrajectory})(
-    ::PreActStage,
+    ::Training{PreActStage},
     obs,
 )
     action = agent.policy(obs)
@@ -147,7 +161,7 @@ function (agent::Agent{<:AbstractPolicy,<:VectorialCompactSARTSATrajectory})(
 end
 
 function (agent::Agent{<:AbstractPolicy,<:VectorialCompactSARTSATrajectory})(
-    ::PostActStage,
+    ::Training{PostActStage},
     obs,
 )
     push!(agent.trajectory; reward = get_reward(obs), terminal = get_terminal(obs))
@@ -155,7 +169,7 @@ function (agent::Agent{<:AbstractPolicy,<:VectorialCompactSARTSATrajectory})(
 end
 
 function (agent::Agent{<:AbstractPolicy,<:VectorialCompactSARTSATrajectory})(
-    ::PostEpisodeStage,
+    ::Training{PostEpisodeStage},
     obs,
 )
     action = agent.policy(obs)

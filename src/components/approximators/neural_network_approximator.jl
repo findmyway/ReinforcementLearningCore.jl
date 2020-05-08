@@ -20,7 +20,8 @@ end
 (app::NeuralNetworkApproximator)(x) = app.model(x)
 
 # !!! watch https://github.com/FluxML/Functors.jl/blob/master/src/functor.jl#L2
-Flux.functor(x::NeuralNetworkApproximator) = (model=x.model,), y -> NeuralNetworkApproximator(y.model, x.optimizer)
+Flux.functor(x::NeuralNetworkApproximator) =
+    (model = x.model,), y -> NeuralNetworkApproximator(y.model, x.optimizer)
 
 device(app::NeuralNetworkApproximator) = device(app.model)
 
@@ -29,6 +30,8 @@ RLBase.update!(app::NeuralNetworkApproximator, gs) =
 
 Base.copyto!(dest::NeuralNetworkApproximator, src::NeuralNetworkApproximator) =
     Flux.loadparams!(dest.model, params(src))
+
+Flux.testmode!(app::NeuralNetworkApproximator, mode = true) = testmode!(app.model, mode)
 
 #####
 # ActorCritic
@@ -51,4 +54,9 @@ Flux.@functor ActorCritic
 function RLBase.update!(app::ActorCritic, gs)
     update!(app.actor, gs)
     update!(app.critic, gs)
+end
+
+function Flux.testmode!(app::ActorCritic, mode = true)
+    testmode!(app.actor, mode)
+    testmode!(app.critic, mode)
 end
